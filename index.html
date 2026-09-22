@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Construtor de Plano de Trabalho — CIEAs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f6f4ee; --panel:#ffffff; --fg:#1c2a22; --muted:#5b6b60; --line:#ddd8c8;
+  --accent:#3c6e47; --accent-soft:#e4ece2; --gold:#a97e2f; --gold-soft:#f4ead2;
+  --bad:#a13a2e; --bad-soft:#f7e6e3; --mid:#b3841f; --mid-soft:#f7ecd6; --good:#2f7a4a; --good-soft:#e2f0e6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121813; --panel:#1a231b; --fg:#e9ede8; --muted:#a3b0a6; --line:#33402f;
+    --accent:#6fae7d; --accent-soft:#20301f; --gold:#d8b565; --gold-soft:#2a2419;
+    --bad:#e0776a; --bad-soft:#3a221e; --mid:#e0b34f; --mid-soft:#362a15; --good:#7fca97; --good-soft:#1c2f22;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121813; --panel:#1a231b; --fg:#e9ede8; --muted:#a3b0a6; --line:#33402f;
+  --accent:#6fae7d; --accent-soft:#20301f; --gold:#d8b565; --gold-soft:#2a2419;
+  --bad:#e0776a; --bad-soft:#3a221e; --mid:#e0b34f; --mid-soft:#362a15; --good:#7fca97; --good-soft:#1c2f22;
+}
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{margin:0; background:var(--bg); color:var(--fg); font-family:'Public Sans',system-ui,sans-serif;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); line-height:1.5;}
+h1,h2,h3{font-family:'Lora',Georgia,serif; font-weight:600; margin:0;}
+.wrap{max-width:1360px; margin:0 auto; padding:2.2rem 1.4rem 4.5rem;}
+header.top{max-width:820px; margin-bottom:1.6rem;}
+header.top .kicker{color:var(--accent); font-weight:600; font-size:.9rem;}
+header.top h1{font-size:clamp(1.5rem,3.1vw,2.05rem); margin-top:.4rem; line-height:1.22;}
+header.top p{color:var(--muted); margin-top:.7rem; max-width:78ch;}
+
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:1.2rem 1.3rem 1.4rem; margin-bottom:1.3rem;}
+.panel h2{font-size:1.08rem;}
+.stepkicker{font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--gold); margin-bottom:.35rem;}
+.panel p.sub{color:var(--muted); font-size:.88rem; margin:.35rem 0 1rem; max-width:90ch;}
+
+.ctrl label{display:block; font-size:.73rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:.3rem;}
+.ctrl select{
+  font-family:'Public Sans',sans-serif; font-size:.95rem; font-weight:600; color:var(--fg);
+  background:var(--accent-soft); border:1px solid var(--line); border-radius:8px; padding:.5rem .7rem; min-width:280px;
+}
+
+.netlayout{display:grid; grid-template-columns:1fr 220px; gap:1.2rem; align-items:start;}
+@media (max-width:780px){ .netlayout{grid-template-columns:1fr;} }
+.netwrap{overflow:visible;}
+.cldgrid{display:grid; grid-template-columns:0.72fr 1.28fr; gap:1.6rem; margin-bottom:1.1rem;}
+@media (max-width:760px){ .cldgrid{grid-template-columns:1fr;} }
+.cldtitle{font-size:.95rem; text-align:center; color:var(--muted); margin-bottom:.4rem; font-weight:700;}
+.zoomwrap{position:relative;}
+.zoomwrap svg{cursor:grab; touch-action:none;}
+.zoomctrls{position:absolute; top:6px; right:6px; display:flex; flex-direction:column; gap:.3rem;}
+.zoomctrls button{
+  width:28px; height:28px; border-radius:7px; border:1px solid var(--line); background:var(--panel);
+  color:var(--fg); font-size:1rem; font-weight:700; cursor:pointer; line-height:1; box-shadow:0 1px 3px rgba(0,0,0,.12);
+}
+.zoomctrls button:hover{background:var(--accent-soft);}
+.zoomhint{font-size:.72rem; color:var(--muted); text-align:center; margin-top:.3rem;}
+.cldnote{font-size:.82rem; color:var(--muted); background:var(--accent-soft); border-radius:8px; padding:.6rem .8rem; margin:.4rem 0 1rem; max-width:90ch;}
+.gradlegend{width:150px;}
+.gradbar{height:12px; border-radius:6px; border:1px solid var(--line);}
+.gradlabels{display:flex; justify-content:space-between; font-size:.72rem; color:var(--muted); margin-top:.25rem;}
+.legends2{display:flex; flex-direction:column; gap:1rem;}
+.legends2-row{flex-direction:row; flex-wrap:wrap; gap:1.6rem;}
+.legendblock h5{font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); margin-bottom:.4rem;}
+.legendblock .items{display:flex; flex-direction:column; gap:.4rem;}
+.legendblock .item{display:flex; align-items:center; gap:.4rem; font-size:.8rem;}
+.legendblock .dot{width:12px; height:12px; border-radius:50%; display:inline-block; flex:none;}
+.legendblock .ring{width:12px; height:12px; border-radius:50%; display:inline-block; border:2.5px solid; background:transparent; flex:none;}
+.nodebox{cursor:pointer;}
+.heatmap-grid{display:grid; grid-template-columns:52px 1fr; row-gap:.55rem; column-gap:.6rem; align-items:center;}
+.heatmap-dimlabel{font-size:.74rem; font-weight:700; letter-spacing:.02em; color:var(--muted); text-align:right;}
+.heatmap-cells{display:flex; flex-wrap:wrap; gap:.4rem;}
+.heatcell{
+  width:44px; height:44px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  cursor:pointer; border:2.5px solid transparent; transition:transform .1s; flex:none;
+}
+.heatcell:hover{transform:scale(1.08);}
+.heatcell.inplan{border-color:var(--gold); box-shadow:0 0 0 2px var(--gold-soft);}
+.heatcell .hid{font-weight:700; font-size:.86rem; line-height:1.1;}
+.heatcell .hsc{font-size:.65rem; line-height:1.2;}
+
+table{border-collapse:collapse; width:100%; font-size:.83rem;}
+.diagtable th{text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); padding:.4rem .5rem; border-bottom:1px solid var(--line);}
+.diagtable td{padding:.45rem .5rem; border-bottom:1px solid var(--line); vertical-align:top;}
+.diagtable tr:last-child td{border-bottom:none;}
+.scorepill{display:inline-block; min-width:2.6em; text-align:center; font-weight:700; padding:.1rem .4rem; border-radius:6px; font-variant-numeric:tabular-nums;}
+.tagroot{color:var(--good); font-weight:600; font-size:.78rem;}
+.tagsym{color:var(--mid); font-size:.78rem;}
+.tagsym b{color:var(--fg);}
+.horizonte{font-size:.74rem; font-weight:700; padding:.1rem .45rem; border-radius:10px;}
+.h-curto{background:var(--good-soft); color:var(--good);}
+.h-medio{background:var(--mid-soft); color:var(--mid);}
+.h-longo{background:var(--bad-soft); color:var(--bad);}
+.addbtn{
+  font-family:'Public Sans',sans-serif; font-weight:700; font-size:.78rem; color:#fff;
+  background:var(--accent); border:none; border-radius:16px; padding:.32rem .75rem; cursor:pointer; white-space:nowrap;
+}
+.addbtn:disabled{background:var(--line); color:var(--muted); cursor:default;}
+.indname{font-weight:600;}
+.indcode{color:var(--muted); font-size:.76rem;}
+
+.plantable{overflow-x:auto;}
+.plantable table{min-width:1500px;}
+.plantable th{text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.02em; color:var(--muted); padding:.4rem .45rem; border-bottom:2px solid var(--line);}
+.plantable td{padding:.35rem .4rem; border-bottom:1px solid var(--line); vertical-align:top;}
+.plantable input[type=text], .plantable textarea, .plantable select, .plantable input[type=date]{
+  width:100%; font-family:'Public Sans',sans-serif; font-size:.82rem; color:var(--fg);
+  background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:.32rem .4rem;
+}
+.plantable textarea{resize:vertical; min-height:2.4em;}
+.plantable .idcol{font-weight:700; color:var(--muted); text-align:center;}
+.rmbtn{background:none; border:none; color:var(--bad); cursor:pointer; font-size:1rem; padding:.2rem;}
+.emptyrow{color:var(--muted); font-size:.86rem; padding:1rem .3rem;}
+@keyframes rowflash{
+  0%{box-shadow: inset 0 0 0 2px var(--gold); background:var(--gold-soft);}
+  100%{box-shadow: inset 0 0 0 2px transparent; background:transparent;}
+}
+.rowflash td{animation: rowflash 1.8s ease-out;}
+
+.exportbar{display:flex; gap:.8rem; align-items:center; margin-top:1rem; flex-wrap:wrap;}
+.exportbtn{
+  font-family:'Public Sans',sans-serif; font-weight:700; font-size:.9rem; color:#fff;
+  background:var(--gold); border:none; border-radius:20px; padding:.55rem 1.2rem; cursor:pointer;
+}
+.exportnote{font-size:.82rem; color:var(--muted);}
+
+footer.note{margin-top:1.8rem; padding-top:1.1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem; max-width:88ch;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">Ferramenta de apoio à decisão · CIEAs</div>
+  <h1>Construtor de Plano de Trabalho</h1>
+  <p>Carrega o diagnóstico real do CIEA, sugere por onde começar e em que horizonte, mas quem decide o que entra no plano — e por quê — é o colegiado. As sugestões de causa, prioridade e prazo são só ponto de partida: todos os campos abaixo podem ser reescritos. O resultado final sai no formato exato do formulário de Plano de Ação do MonitoraEA, pronto para exportar.</p>
+</header>
+
+<div class="panel">
+  <div class="stepkicker">Etapa 1</div>
+  <div class="ctrl">
+    <label for="ufSelect">CIEA / UF</label>
+    <select id="ufSelect"></select>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="stepkicker">Etapa 2</div>
+  <h2>Diagnóstico visual</h2>
+  <p class="sub">À esquerda, o mapa de calor com a nota atual de cada indicador — leitura rápida de onde a UF está fraca. À direita, o CLD de priorização: os mesmos indicadores reorganizados por urgência, quanto mais prioritário mais perto do centro, com as 49 relações causais entre eles. Leem-se em conjunto: o mapa mostra onde dói, o CLD mostra por onde começar. O anel dourado marca o que já está no Plano de Ação; clique em qualquer indicador, nos dois painéis, para adicionar ou remover.</p>
+  <div class="cldgrid">
+    <div class="cldcol">
+      <h3 class="cldtitle">Mapa de calor — Resultados</h3>
+      <div id="heatmapWrap"></div>
+    </div>
+    <div class="cldcol">
+      <h3 class="cldtitle">CLD — Priorização</h3>
+      <div class="zoomwrap">
+        <svg id="netPrioridade" viewBox="0 0 860 860" style="width:100%; height:auto; display:block;"></svg>
+        <div class="zoomctrls">
+          <button id="zoomIn" title="Aumentar">+</button>
+          <button id="zoomOut" title="Diminuir">−</button>
+          <button id="zoomReset" title="Voltar ao normal">⤾</button>
+        </div>
+      </div>
+      <div class="zoomhint">arraste para navegar · role o mouse ou use os botões para dar zoom</div>
+    </div>
+  </div>
+  <p class="cldnote">As 49 relações causais são sempre as mesmas, em todas as UFs — no CLD de priorização, só a posição de cada indicador muda, de acordo com a prioridade sugerida para esta UF.</p>
+  <div class="legends2 legends2-row">
+    <div class="legendblock">
+      <h5>Resultados — escala de notas</h5>
+      <div class="gradlegend">
+        <div class="gradbar" style="background:linear-gradient(90deg, #B23A2E, #D6A42B, #2B7D4F);"></div>
+        <div class="gradlabels"><span>5,0</span><span>10,0</span></div>
+      </div>
+    </div>
+    <div class="legendblock">
+      <h5>Priorização — escala de urgência</h5>
+      <div class="gradlegend">
+        <div class="gradbar" style="background:linear-gradient(90deg, #DEF0E3, #145A37);"></div>
+        <div class="gradlabels"><span>baixa</span><span>alta</span></div>
+      </div>
+    </div>
+    <div class="legendblock">
+      <h5>No plano</h5>
+      <div class="items"><span class="item"><span class="ring" style="border-color:var(--gold)"></span>já adicionado</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Diagnóstico</h2>
+  <p class="sub">Os 19 indicadores, do mais frágil ao mais forte. Quando o diagrama de causalidade não identifica causa mais fraca, é uma leitura de que agir ali não parece depender de outra coisa melhorar antes — não uma afirmação de que a causa é essa. Quando o diagrama de causalidade sugere possível dependência de outro indicador, é só isso: uma sugestão, a partir da estrutura causal mapeada. Se o colegiado souber de uma causa diferente — algo que o diagrama não capta — o campo de justificativa abaixo é livre para registrar isso em vez da sugestão.</p>
+  <table class="diagtable">
+    <thead><tr><th>Nota</th><th>Indicador</th><th>Diagnóstico</th><th>Prazo sugerido</th><th>Prioridade sugerida</th><th></th></tr></thead>
+    <tbody id="diagBody"></tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <div class="stepkicker">Etapa 3</div>
+  <h2>Plano de Ação</h2>
+  <p class="sub">Cada linha é uma atividade. Os campos vêm pré-preenchidos a partir do diagnóstico quando você clica em "+ adicionar" acima — edite qualquer coisa, inclusive a fragilidade e o indicador. Datas, responsável e parceiros ficam em branco de propósito: só o CIEA sabe essa parte.</p>
+  <div class="plantable">
+    <table id="planTable">
+      <thead><tr>
+        <th style="width:2.4em;">ID</th>
+        <th style="min-width:200px;">Atividade</th>
+        <th style="min-width:240px;">Fragilidade enfrentada</th>
+        <th style="min-width:130px;">Indicador relacionado</th>
+        <th style="min-width:200px;">Resultado esperado</th>
+        <th style="min-width:100px;">Prioridade</th>
+        <th style="min-width:130px;">Início estimado</th>
+        <th style="min-width:130px;">Conclusão estimada</th>
+        <th style="min-width:150px;">Responsável(is)</th>
+        <th style="min-width:150px;">Parceiros</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="planBody"></tbody>
+    </table>
+  </div>
+  <div id="planEmpty" class="emptyrow">Nenhuma atividade ainda — clique em "+ adicionar" em algum indicador do diagnóstico acima.</div>
+  <div class="exportbar">
+    <button class="exportbtn" id="exportBtn">Exportar .xlsx (Plano de Ação + Plano de Monitoramento)</button>
+    <span class="exportnote">gera o arquivo no formato do template do MonitoraEA, com o Plano de Monitoramento pré-preenchido (status "Não iniciado")</span>
+  </div>
+</div>
+
+<footer class="note">
+  Sugestão de prazo: segue a cadeia de causas até a raiz — se o indicador já é sua própria causa-raiz, "curto prazo"; se depende de uma causa mais fraca, "médio"; se essa causa por sua vez depende de outra, "longo". Sugestão de prioridade: combina alavancagem estrutural (quantos outros indicadores esse afeta) com a distância até o teto da escala. Nenhuma das duas trava o formulário — são o ponto de partida da conversa, não o resultado dela.
+</footer>
+
+</div>
+
+<script>
+const EDGES = [[1,2],[1,3],[1,4],[1,9],[2,3],[2,5],[2,6],[2,8],[2,9],[2,10],[2,16],[2,17],[2,19],
+[3,1],[3,2],[3,7],[3,8],[3,9],[3,19],[4,7],[4,9],[4,19],[5,1],[5,2],[5,3],[5,8],[5,10],
+[6,8],[6,10],[6,19],[7,6],[8,6],[8,9],[8,10],[8,19],[9,10],[10,3],[10,12],[11,15],[12,10],
+[12,15],[13,12],[14,12],[14,18],[16,19],[17,18],[18,7],[18,10],[18,14]];
+const NODES = {
+  1:{name:"Diagnóstico participativo do colegiado", tipo:"P", ficha:"DDPF 1/3", dim:"DDPF"},
+  2:{name:"Planejamento participativo do colegiado", tipo:"P", ficha:"DDPF 2/3", dim:"DDPF"},
+  3:{name:"Processo formativo do colegiado", tipo:"P", ficha:"DDPF 3/3", dim:"DDPF"},
+  4:{name:"Normativas de institucionalização e inclusão", tipo:"E", ficha:"DGG 1/6", dim:"DGG"},
+  5:{name:"Apoio financeiro e logístico", tipo:"E", ficha:"DGG 2/6", dim:"DGG"},
+  6:{name:"Transparência do colegiado", tipo:"P", ficha:"DGG 3/6", dim:"DGG"},
+  7:{name:"Monitoramento, avaliação e controle social", tipo:"P", ficha:"DGG 4/6", dim:"DGG"},
+  8:{name:"Ampliação da participação da sociedade", tipo:"I", ficha:"DGG 6/6", dim:"DGG"},
+  9:{name:"Deliberação e tomada de decisão", tipo:"R", ficha:"DGG 5/6", dim:"DGG"},
+  10:{name:"Ações de enraizamento e capilaridade", tipo:"P", ficha:"DIPPE 1/6", dim:"DIPPE"},
+  11:{name:"Produção de documentos e recomendações", tipo:"P", ficha:"DIPPE 2/6", dim:"DIPPE"},
+  12:{name:"Articulação e intersetorialidade", tipo:"P", ficha:"DIPPE 3/6", dim:"DIPPE"},
+  13:{name:"Compromissos intersetoriais firmados", tipo:"R", ficha:"DIPPE 4/6", dim:"DIPPE"},
+  14:{name:"Comprometimento do poder público", tipo:"R", ficha:"DIPPE 5/6", dim:"DIPPE"},
+  15:{name:"Alterações e incrementos em políticas públicas", tipo:"I", ficha:"DIPPE 6/6", dim:"DIPPE"},
+  16:{name:"Acordo de convivência dialógica", tipo:"P", ficha:"DDP 1/3", dim:"DDP"},
+  17:{name:"Percepção de pertencimento e inclusão", tipo:"R", ficha:"DDP 2/3", dim:"DDP"},
+  18:{name:"Comprometimento dos membros do colegiado", tipo:"P", ficha:"DDP 3/3", dim:"DDP"},
+  19:{name:"Justiça socioambiental, climática e antirracista", tipo:"P", ficha:"DJSCA 1/1", dim:"DJSCA"},
+};
+const DIMS = [["DDPF",[1,2,3]],["DGG",[4,5,6,7,8,9]],["DIPPE",[10,11,12,13,14,15]],["DDP",[16,17,18]],["DJSCA",[19]]];
+const DIMCOLOR = {DDPF:"#1B4F72",DGG:"#2E6DA4",DIPPE:"#4A85BC",DDP:"#7FACD6",DJSCA:"#B9D2EC"};
+const IDS = Object.keys(NODES).map(Number);
+const UF_DATA = {"ACRE":{"region":"NORTE","scores":[7.5,5.0,5.0,10.0,5.0,7.08,5.0,5.0,5.62,5.0,10.0,5.0,5.0,10.0,5.0,5.0,5.0,5.0,5.0]},"ALAGOAS":{"region":"NORDESTE","scores":[5.0,5.0,6.94,10.0,5.0,8.33,5.0,5.0,5.0,5.0,5.0,5.0,5.0,6.67,5.0,5.0,8.33,5.0,5.0]},"AMAPÁ":{"region":"NORTE","scores":[8.33,9.17,7.69,10.0,5.0,6.67,6.25,7.33,5.0,7.5,10.0,8.54,6.25,8.33,10.0,10.0,7.92,7.5,5.0]},"AMAZONAS":{"region":"NORTE","scores":[7.5,8.33,5.0,10.0,5.0,8.75,5.0,5.0,5.0,5.0,5.0,5.0,5.0,6.67,5.0,5.0,5.0,5.0,5.0]},"BAHIA":{"region":"NORDESTE","scores":[5.0,7.92,7.22,7.5,8.75,9.17,5.0,5.0,8.75,10.0,10.0,7.43,6.25,8.33,10.0,9.17,5.0,5.0,5.0]},"CEARÁ":{"region":"NORDESTE","scores":[7.5,5.0,5.0,6.25,5.0,8.33,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0]},"DISTRITO FEDERAL":{"region":"CENTRO-OESTE","scores":[5.0,7.08,5.0,10.0,5.0,8.33,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0]},"ESPÍRITO SANTO":{"region":"SUDESTE","scores":[7.5,7.08,6.81,7.5,5.0,5.42,7.5,6.75,8.75,10.0,10.0,9.17,5.62,5.0,10.0,7.5,8.06,8.61,5.0]},"GOIÁS":{"region":"CENTRO-OESTE","scores":[9.17,8.33,8.03,10.0,5.0,7.5,5.0,5.83,6.25,10.0,10.0,7.29,5.0,6.67,5.0,5.0,5.0,5.0,5.0]},"MARANHÃO":{"region":"NORDESTE","scores":[5.0,7.5,5.0,10.0,8.75,5.0,5.0,5.0,10.0,5.0,5.0,5.08,5.0,10.0,10.0,5.0,7.5,8.89,5.0]},"MATO GROSSO":{"region":"CENTRO-OESTE","scores":[5.0,5.0,5.0,10.0,5.0,8.75,5.0,5.25,7.5,5.0,5.0,5.64,5.0,5.0,5.0,5.0,5.0,5.0,5.0]},"MATO GROSSO DO SUL":{"region":"CENTRO-OESTE","scores":[5.0,6.67,7.08,10.0,5.0,9.17,6.25,6.0,5.62,7.5,10.0,7.31,5.0,6.67,10.0,5.0,5.0,7.78,5.0]},"MINAS GERAIS":{"region":"SUDESTE","scores":[9.17,10.0,6.67,10.0,5.0,8.33,7.5,5.75,10.0,10.0,5.0,5.0,5.0,6.67,5.0,10.0,7.92,9.72,6.43]},"PARANÁ":{"region":"SUL","scores":[5.0,5.0,6.67,7.5,5.0,5.42,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0]},"PARAÍBA":{"region":"NORDESTE","scores":[5.0,5.0,5.0,6.25,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0]},"PARÁ":{"region":"NORTE","scores":[5.0,9.17,7.42,10.0,5.0,7.92,5.0,5.0,8.75,5.0,5.0,7.64,5.62,8.33,5.0,5.0,5.0,8.61,5.0]},"PERNAMBUCO":{"region":"NORDESTE","scores":[5.0,10.0,6.67,10.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,10.0,5.0,5.0,5.0,5.0]},"PIAUÍ":{"region":"NORDESTE","scores":[5.0,5.0,7.42,10.0,5.0,7.5,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,10.0,5.0,5.0,8.89,5.0]},"RIO DE JANEIRO":{"region":"SUDESTE","scores":[5.0,7.5,7.83,10.0,5.0,8.33,6.25,6.33,8.12,7.5,10.0,5.97,5.0,6.67,5.0,7.5,5.0,8.33,5.0]},"RIO GRANDE DO NORTE":{"region":"NORDESTE","scores":[5.0,5.0,7.08,10.0,5.0,5.0,5.0,5.75,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0]},"RIO GRANDE DO SUL":{"region":"SUL","scores":[5.0,8.33,7.78,5.0,5.0,9.17,5.0,5.0,6.25,7.5,5.0,5.08,5.0,5.0,5.0,5.0,5.0,7.78,5.0]},"RONDÔNIA":{"region":"NORTE","scores":[5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0]},"RORAIMA":{"region":"NORTE","scores":[5.0,6.67,5.0,5.0,5.0,8.33,5.0,6.5,5.0,7.5,5.0,5.0,6.25,5.0,5.0,5.0,5.0,5.0,5.0]},"SANTA CATARINA":{"region":"SUL","scores":[5.0,9.17,6.94,10.0,5.0,7.92,6.25,6.08,7.5,7.5,5.0,9.44,6.25,10.0,10.0,7.5,5.0,8.06,5.0]},"SERGIPE":{"region":"NORDESTE","scores":[7.5,9.17,6.67,10.0,8.75,8.33,10.0,5.75,10.0,10.0,10.0,5.64,5.0,10.0,10.0,10.0,9.17,8.89,5.0]},"SÃO PAULO":{"region":"SUDESTE","scores":[8.33,6.67,7.56,10.0,5.0,9.58,6.25,6.58,8.75,7.5,10.0,5.0,5.0,6.67,10.0,10.0,5.0,5.0,5.0]},"TOCANTINS":{"region":"NORTE","scores":[5.0,8.33,5.0,10.0,8.12,9.58,5.0,6.75,10.0,5.0,10.0,5.0,8.12,10.0,5.0,5.0,5.0,5.0,5.0]}};
+const UF_LIST = Object.keys(UF_DATA).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+const IN = {}, OUT = {};
+IDS.forEach(n=>{IN[n]=[]; OUT[n]=[];});
+EDGES.forEach(([a,b])=>{IN[b].push(a); OUT[a].push(b);});
+
+const LEVERAGE = {};
+IDS.forEach(n=>{
+  const seen=new Set(); const q=[n];
+  while(q.length){ const c=q.pop(); for(const m of OUT[c]){ if(!seen.has(m)){seen.add(m); q.push(m);} } }
+  let sum=0; for(const d of seen){ const w={E:0,P:1,R:2,I:3}[NODES[d].tipo]; sum += (w+1); }
+  LEVERAGE[n]=sum;
+});
+const MAXLEV = Math.max(...IDS.map(n=>LEVERAGE[n]));
+
+function ancestors(n){
+  const seen=new Set(); const q=[n];
+  while(q.length){ const c=q.pop(); for(const m of IN[c]){ if(!seen.has(m)){seen.add(m); q.push(m);} } }
+  return seen;
+}
+
+let planRows = [];
+let nextId = 1;
+
+function scoreClass(v){
+  if(v < 6.7) return {c:'var(--bad)', bg:'var(--bad-soft)'};
+  if(v < 8.3) return {c:'var(--mid)', bg:'var(--mid-soft)'};
+  return {c:'var(--good)', bg:'var(--good-soft)'};
+}
+
+function diagnose(scores){
+  // scores: {id: valor}
+  const bindingNode = {};
+  IDS.forEach(n=>{
+    let bestId=n, bestVal=scores[n];
+    for(const a of ancestors(n)){ if(scores[a] < bestVal){ bestVal=scores[a]; bestId=a; } }
+    bindingNode[n]=bestId;
+  });
+  const horizon = {}; // curto/medio/longo, seguindo a cadeia ate a raiz
+  IDS.forEach(n=>{
+    let cur=n, hops=0, seen=new Set();
+    while(bindingNode[cur]!==cur && !seen.has(cur) && hops<10){ seen.add(cur); cur=bindingNode[cur]; hops++; }
+    horizon[n] = hops===0 ? 'curto' : (hops===1 ? 'medio' : 'longo');
+  });
+  const priorityScore = {};
+  IDS.forEach(n=>{
+    const gap = 10 - scores[n];
+    const isRoot = bindingNode[n]===n;
+    priorityScore[n] = LEVERAGE[n]*gap*(isRoot?1:0.4);
+  });
+  const ranked = IDS.slice().sort((a,b)=>priorityScore[b]-priorityScore[a]);
+  const priorityTier = {};
+  ranked.forEach((id,i)=>{
+    priorityTier[id] = i < 6 ? 'Alta' : (i < 13 ? 'Média' : 'Baixa');
+  });
+  return {bindingNode, horizon, priorityTier};
+}
+
+const ANGLE = {};
+function computeAngles(){
+  const order = [];
+  DIMS.forEach(([code,ids])=>{ ids.forEach(id=>order.push(id)); order.push(null); });
+  order.pop();
+  const n = order.length;
+  const angleOf = i => (i/n)*2*Math.PI - Math.PI/2;
+  order.forEach((id,i)=>{ if(id===null) return; ANGLE[id]=angleOf(i); });
+}
+function resultScale(t){
+  t = Math.max(0,Math.min(1,t));
+  const stops = t<0.5
+    ? [[178,58,46],[214,164,43], t/0.5]
+    : [[214,164,43],[43,125,79], (t-0.5)/0.5];
+  const [c0,c1,u] = stops;
+  const r = c0[0]+(c1[0]-c0[0])*u, g=c0[1]+(c1[1]-c0[1])*u, b=c0[2]+(c1[2]-c0[2])*u;
+  return `rgb(${r.toFixed(0)},${g.toFixed(0)},${b.toFixed(0)})`;
+}
+function priorScale(t){
+  t = Math.max(0,Math.min(1,t));
+  const c0=[222,240,227], c1=[20,90,55];
+  const r = c0[0]+(c1[0]-c0[0])*t, g=c0[1]+(c1[1]-c0[1])*t, b=c0[2]+(c1[2]-c0[2])*t;
+  return `rgb(${r.toFixed(0)},${g.toFixed(0)},${b.toFixed(0)})`;
+}
+function textOn(t){ return (t>0.32 && t<0.68) ? '#3a2c05' : '#ffffff'; }
+function textOnAmber(t){ return t>0.55 ? '#ffffff' : '#123a28'; }
+
+const NODE_R = 25;
+const CX=430, CY=430, R_OUT=300;
+const PRI_RADIUS = {Alta:100, 'Média':205, Baixa:300};
+const PRI_T = {Alta:0.92, 'Média':0.55, Baixa:0.18};
+
+let netScores = null, netPriority = null;
+
+function drawCLD(svgId, prefix, posFn, fillFn, textFn){
+  const svg = document.getElementById(svgId);
+  let s = `<defs>
+    <marker id="arrow-${prefix}" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="8.5" markerHeight="8.5" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7891a8"/>
+    </marker>
+  </defs>`;
+  EDGES.forEach(([a,b])=>{
+    const [x1,y1]=posFn(a), [x2,y2]=posFn(b);
+    const cxa=x1+(CX-x1)*0.38, cya=y1+(CY-y1)*0.38, cxb=x2+(CX-x2)*0.38, cyb=y2+(CY-y2)*0.38;
+    const dS=Math.hypot(cxa-x1,cya-y1)||1, sx1=x1+(cxa-x1)/dS*(NODE_R+2), sy1=y1+(cya-y1)/dS*(NODE_R+2);
+    const dE=Math.hypot(x2-cxb,y2-cyb)||1, ex2=x2-(x2-cxb)/dE*(NODE_R+3), ey2=y2-(y2-cyb)/dE*(NODE_R+3);
+    s += `<path d="M ${sx1} ${sy1} C ${cxa} ${cya}, ${cxb} ${cyb}, ${ex2} ${ey2}" fill="none" stroke="#7891a8" stroke-width="1" opacity="0.42" marker-end="url(#arrow-${prefix})"/>`;
+  });
+  IDS.forEach(id=>{
+    const [x,y] = posFn(id);
+    const dat = NODES[id];
+    const fill = fillFn(id);
+    s += `<g class="nodebox" id="nodeg-${prefix}-${id}" data-id="${id}" transform="translate(${x},${y})">
+      <circle id="ring-${prefix}-${id}" r="${NODE_R+5}" fill="none" stroke="var(--gold)" stroke-width="3" opacity="0"/>
+      <circle r="${NODE_R}" fill="${fill}" stroke="#0B3C6B" stroke-width="1.3"/>
+      <text x="0" y="-2" text-anchor="middle" fill="${textFn(id)}" font-weight="700" font-size="14">${id}</text>
+      <text x="0" y="13" text-anchor="middle" fill="${textFn(id)}" font-size="10">${netPriority.priorityTier[id]}</text>
+      <title>${id}. ${dat.name} (${dat.ficha})</title>
+    </g>`;
+  });
+  svg.innerHTML = s;
+  svg.querySelectorAll('.nodebox').forEach(g=>{
+    g.addEventListener('click', ()=>goToDiagnostic(Number(g.dataset.id)));
+  });
+}
+
+function setupZoomPan(svgId, base){
+  const svg = document.getElementById(svgId);
+  let vb = {...base};
+  const MINW = base.w*0.22, MAXW = base.w*2.5;
+  function apply(){ svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+  function zoomAt(clientX, clientY, factor){
+    const rect = svg.getBoundingClientRect();
+    const px = (clientX-rect.left)/rect.width, py = (clientY-rect.top)/rect.height;
+    const newW = Math.min(MAXW, Math.max(MINW, vb.w*factor));
+    const cx = vb.x + px*vb.w, cy = vb.y + py*vb.h;
+    vb = { x: cx - px*newW, y: cy - py*newW, w: newW, h: newW };
+    apply();
+  }
+  svg.addEventListener('wheel', e=>{
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, e.deltaY>0 ? 1.12 : 0.89);
+  }, {passive:false});
+  let down=false, moved=false, startX,startY,lastX,lastY;
+  svg.addEventListener('pointerdown', e=>{
+    down=true; moved=false; startX=lastX=e.clientX; startY=lastY=e.clientY;
+  });
+  svg.addEventListener('pointermove', e=>{
+    if(!down) return;
+    if(!moved && Math.hypot(e.clientX-startX, e.clientY-startY)>4){
+      moved=true; svg.style.cursor='grabbing'; svg.setPointerCapture(e.pointerId);
+    }
+    if(!moved) return;
+    const rect = svg.getBoundingClientRect();
+    const dx = (e.clientX-lastX)/rect.width*vb.w, dy=(e.clientY-lastY)/rect.height*vb.h;
+    vb.x -= dx; vb.y -= dy; lastX=e.clientX; lastY=e.clientY; apply();
+  });
+  svg.addEventListener('pointerup', ()=>{ down=false; moved=false; svg.style.cursor='grab'; });
+  svg.addEventListener('pointerleave', ()=>{ if(!moved) down=false; });
+
+  document.getElementById('zoomIn').addEventListener('click', ()=>{
+    const r = svg.getBoundingClientRect();
+    zoomAt(r.left+r.width/2, r.top+r.height/2, 0.78);
+  });
+  document.getElementById('zoomOut').addEventListener('click', ()=>{
+    const r = svg.getBoundingClientRect();
+    zoomAt(r.left+r.width/2, r.top+r.height/2, 1.28);
+  });
+  document.getElementById('zoomReset').addEventListener('click', ()=>{ vb = {...base}; apply(); });
+}
+
+function renderHeatmap(scores){
+  const el = document.getElementById('heatmapWrap');
+  let html = '<div class="heatmap-grid">';
+  DIMS.forEach(([code,ids])=>{
+    html += `<div class="heatmap-dimlabel">${code}</div><div class="heatmap-cells">`;
+    ids.forEach(id=>{
+      const v = scores[id];
+      const bg = resultScale((v-5)/5);
+      const fg = textOn((v-5)/5);
+      html += `<div class="heatcell" id="heatcell-${id}" data-id="${id}" style="background:${bg}; color:${fg};" title="${id}. ${NODES[id].name} (${NODES[id].ficha})">
+        <span class="hid">${id}</span><span class="hsc">${v.toFixed(1)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+  el.querySelectorAll('.heatcell').forEach(c=>{
+    c.addEventListener('click', ()=>goToDiagnostic(Number(c.dataset.id)));
+  });
+}
+
+function buildDualCLD(scores){
+  netScores = scores;
+  netPriority = diagnose(scores);
+  computeAngles();
+  // dentro de cada anel de prioridade, redistribui os ângulos (senão nós vizinhos na mesma prioridade colidem)
+  const tiers = {Alta:[], 'Média':[], Baixa:[]};
+  IDS.forEach(id=>tiers[netPriority.priorityTier[id]].push(id));
+  const priAngle = {};
+  Object.values(tiers).forEach(ids=>{
+    ids.sort((a,b)=>ANGLE[a]-ANGLE[b]);
+    const n = ids.length;
+    ids.forEach((id,i)=>{ priAngle[id] = (i/n)*2*Math.PI - Math.PI/2; });
+  });
+  const posPri = id => { const r = PRI_RADIUS[netPriority.priorityTier[id]]; return [CX + r*Math.cos(priAngle[id]), CY + r*Math.sin(priAngle[id])]; };
+  renderHeatmap(scores);
+  drawCLD('netPrioridade', 'pri', posPri, id=>priorScale(PRI_T[netPriority.priorityTier[id]]), id=>textOnAmber(PRI_T[netPriority.priorityTier[id]]));
+  updateNetRings();
+}
+
+function updateNetRings(){
+  IDS.forEach(id=>{
+    const ring = document.getElementById(`ring-pri-${id}`);
+    const cell = document.getElementById(`heatcell-${id}`);
+    const inPlan = planRows.some(r=>r.indicador===NODES[id].ficha);
+    if(ring) ring.setAttribute('opacity', inPlan ? '1' : '0');
+    if(cell) cell.classList.toggle('inplan', inPlan);
+  });
+}
+function goToDiagnostic(id){
+  const row = document.getElementById(`diagrow-${id}`);
+  if(!row) return;
+  row.scrollIntoView({behavior:'smooth', block:'center'});
+  row.classList.add('rowflash');
+  setTimeout(()=>row.classList.remove('rowflash'), 1600);
+}
+
+const ufSelect = document.getElementById('ufSelect');
+UF_LIST.forEach(uf=>{ const o=document.createElement('option'); o.value=uf; o.textContent=`${uf} (${UF_DATA[uf].region})`; ufSelect.appendChild(o); });
+ufSelect.value = 'SERGIPE';
+ufSelect.addEventListener('change', renderDiag);
+
+const HORIZLABEL = {curto:'Curto prazo', medio:'Médio prazo', longo:'Longo prazo'};
+const HORIZCLASS = {curto:'h-curto', medio:'h-medio', longo:'h-longo'};
+
+function renderDiag(){
+  const uf = ufSelect.value;
+  const scores = {}; IDS.forEach((id,i)=>{ scores[id]=UF_DATA[uf].scores[i]; });
+  buildDualCLD(scores);
+  const {bindingNode, horizon, priorityTier} = diagnose(scores);
+  const order = IDS.slice().sort((a,b)=>scores[a]-scores[b]);
+  const tbody = document.getElementById('diagBody');
+  tbody.innerHTML='';
+  order.forEach(id=>{
+    const dat = NODES[id];
+    const sc = scores[id];
+    const cls = scoreClass(sc);
+    const isRoot = bindingNode[id]===id;
+    const diagHtml = isRoot
+      ? `<span class="tagroot">o diagrama de causalidade não identifica causa mais fraca</span>`
+      : `<span class="tagsym">o diagrama de causalidade sugere possível dependência de <b>${bindingNode[id]}. ${NODES[bindingNode[id]].name}</b></span>`;
+    const tr = document.createElement('tr');
+    tr.id = `diagrow-${id}`;
+    tr.innerHTML = `
+      <td><span class="scorepill" style="background:${cls.bg}; color:${cls.c}">${sc.toFixed(1)}</span></td>
+      <td><div class="indname">${id}. ${dat.name}</div><div class="indcode">${dat.ficha}</div></td>
+      <td>${diagHtml}</td>
+      <td><span class="horizonte ${HORIZCLASS[horizon[id]]}">${HORIZLABEL[horizon[id]]}</span></td>
+      <td>${priorityTier[id]}</td>
+      <td><button class="addbtn" data-id="${id}">+ adicionar</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.addbtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      addPlanRow(Number(btn.dataset.id), scores, bindingNode, horizon, priorityTier);
+    });
+  });
+}
+
+function addPlanRow(id, scores, bindingNode, horizon, priorityTier){
+  const dat = NODES[id];
+  const isRoot = bindingNode[id]===id;
+  const fragText = isRoot
+    ? `${dat.name} está abaixo do esperado (nota ${scores[id].toFixed(1)}); o diagrama de causalidade não identifica outra causa mais fraca associada.`
+    : `${dat.name} está abaixo do esperado (nota ${scores[id].toFixed(1)}); o diagrama de causalidade sugere possível dependência de ${NODES[bindingNode[id]].name.toLowerCase()} (nota ${scores[bindingNode[id]].toFixed(1)}). Ajuste esta justificativa se o colegiado identificar outra causa.`;
+  planRows.push({
+    id: nextId++,
+    atividade: '',
+    fragilidade: fragText,
+    indicador: dat.ficha,
+    resultado: '',
+    prioridade: priorityTier[id],
+    inicio: '',
+    fim: '',
+    responsavel: '',
+    parceiros: ''
+  });
+  renderPlan();
+  highlightLastPlanRow();
+}
+
+function highlightLastPlanRow(){
+  const rows = document.querySelectorAll('#planBody tr');
+  const last = rows[rows.length-1];
+  if(!last) return;
+  last.scrollIntoView({behavior:'smooth', block:'center'});
+  last.classList.add('rowflash');
+  setTimeout(()=>last.classList.remove('rowflash'), 1600);
+}
+
+function renderPlan(){
+  const tbody = document.getElementById('planBody');
+  const empty = document.getElementById('planEmpty');
+  tbody.innerHTML='';
+  empty.style.display = planRows.length ? 'none' : 'block';
+  const fichaOptions = IDS.map(id=>`<option value="${NODES[id].ficha}">${NODES[id].ficha} — ${NODES[id].name}</option>`).join('');
+  planRows.forEach((row,idx)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="idcol">${row.id}</td>
+      <td><textarea data-f="atividade" data-i="${idx}">${row.atividade}</textarea></td>
+      <td><textarea data-f="fragilidade" data-i="${idx}">${row.fragilidade}</textarea></td>
+      <td><select data-f="indicador" data-i="${idx}">${fichaOptions}</select></td>
+      <td><textarea data-f="resultado" data-i="${idx}">${row.resultado}</textarea></td>
+      <td><select data-f="prioridade" data-i="${idx}">
+            ${['Alta','Média','Baixa'].map(p=>`<option value="${p}" ${p===row.prioridade?'selected':''}>${p}</option>`).join('')}
+          </select></td>
+      <td><input type="date" data-f="inicio" data-i="${idx}" value="${row.inicio}"></td>
+      <td><input type="date" data-f="fim" data-i="${idx}" value="${row.fim}"></td>
+      <td><input type="text" data-f="responsavel" data-i="${idx}" value="${row.responsavel}"></td>
+      <td><input type="text" data-f="parceiros" data-i="${idx}" value="${row.parceiros}"></td>
+      <td><button class="rmbtn" data-rm="${idx}" title="remover">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  // fixar o indicador selecionado corretamente (select criado sem 'selected' acima por simplicidade)
+  tbody.querySelectorAll('select[data-f="indicador"]').forEach(sel=>{
+    const i = sel.dataset.i;
+    sel.value = planRows[i].indicador;
+  });
+  tbody.querySelectorAll('textarea, select, input').forEach(el=>{
+    el.addEventListener('input', e=>{
+      const i = e.target.dataset.i, f = e.target.dataset.f;
+      planRows[i][f] = e.target.value;
+      if(f==='indicador') updateNetRings();
+    });
+  });
+  tbody.querySelectorAll('[data-rm]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      planRows.splice(Number(btn.dataset.rm),1);
+      renderPlan();
+    });
+  });
+  updateNetRings();
+}
+
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const acaoHeader = ['ID','Atividade','Fragilidade enfrentada','Indicador relacionado','Resultado esperado','Prioridade','Data estimada de início','Data estimada de conclusão','Nome do(s) responsável(is) por puxar a atividade','Parceiros que deverão ser envolvidos'];
+  const acaoRows = planRows.map(r=>[r.id,r.atividade,r.fragilidade,r.indicador,r.resultado,r.prioridade,r.inicio,r.fim,r.responsavel,r.parceiros]);
+  const monHeader = ['ID','Atividade','Status','Data de início efetivo','Data de conclusão efetivo','Organizações e iniciativas que efetivamente contribuiram com a atividade','Resultados alcançados','Evidências','Dificuldades encontradas','Desdobramentos da atividade (novas atividades, recomendações, etc)'];
+  const monRows = planRows.map(r=>[r.id,r.atividade,'Não iniciado','','','','','','','']);
+
+  const wb = XLSX.utils.book_new();
+  const wsAcao = XLSX.utils.aoa_to_sheet([['PLANO DE AÇÃO'],acaoHeader,...acaoRows]);
+  const wsMon = XLSX.utils.aoa_to_sheet([['PLANO DE MONITORAMENTO'],monHeader,...monRows]);
+  XLSX.utils.book_append_sheet(wb, wsAcao, 'Plano de Ação');
+  XLSX.utils.book_append_sheet(wb, wsMon, 'Plano de Monitoramento');
+  const uf = ufSelect.value.replace(/\s+/g,'_');
+  XLSX.writeFile(wb, `Plano_de_Trabalho_${uf}.xlsx`);
+});
+
+renderDiag();
+renderPlan();
+setupZoomPan('netPrioridade', {x:0,y:0,w:860,h:860});
+</script>
+</body>
+</html>
